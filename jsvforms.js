@@ -1,20 +1,34 @@
+var O = {};
 var JSV = require("../JSV").JSV;
 var typeOf = JSV.typeOf;
 var isJSONSchema = JSV.isJSONSchema;
+var toArray = JSV.toArray;
 var idCounter = 0;
 
-Array.removeAll = function (arr, o) {
+if (!Object.keys) {
+	Object.keys = function(obj) {
+		var array = [], prop;
+		for (prop in obj) {
+			if (obj.hasOwnProperty(prop)) {
+				array.push(prop);
+			}
+		}
+		return array;
+	};
+}
+
+Array.removeAll = function (arr, obj) {
 	var index;
-	while ((index = arr.indexOf(o)) > -1) {
+	while ((index = arr.indexOf(obj)) > -1) {
 		arr.splice(index, 1);
 	}
 };
 
-Array.addAll = function (arr, os) {
+Array.addAll = function (arr, objs) {
 	var x, xl;
-	for (x = 0, xl = os.length; x < xl; ++x) {
-		if (arr.indexOf(os[x]) === -1) {
-			arr.push(os[x]);
+	for (x = 0, xl = objs.length; x < xl; ++x) {
+		if (arr.indexOf(objs[x]) === -1) {
+			arr.push(objs[x]);
 		}
 	}
 };
@@ -27,126 +41,6 @@ function escapeXMLAttribute(str) {
 		.replace(/</g, "&lt;")
 		.replace(/>/g, "&gt;");
 }
-
-/*
-function createSchema(schema, instance) {
-	var id = "jsvf-" + ++idCounter;
-	var inputId = "jsvf-" + ++idCounter;
-	var attributes = schema.getAttributes();
-	var content = [];
-	var options = [];
-	var type = JSV.toArray(attributes["type"]);
-	var currentType;
-	var currentValue;
-	
-	content.push('<div id="' + id + '" class="jsvf-instance" data-jsvf-schemaURI="' + escapeXMLAttribute(schema.getURI()) + '">');
-	
-	//if (attributes["title"]) {
-	//	content.push('<label class="jsvf-title" for="' + inputId + '">' + attributes["title"] + '</label>');
-	//}
-	
-	//if (attributes["description"]) {
-	//	content.push('<p class="jsvf-description">' + attributes["description"] + '</p>');
-	//}
-	
-	if (type.length === 1 && type[0] !== "any") {
-		currentType = (typeOf(type) === "array" ? type[0] : type);
-	} else {
-		if (type.length === 0 || type.indexOf("any") !== -1) {
-			type = ["null", "boolean", "number", "string", "object", "array"];
-		}
-		
-		content.push('<select class="jsvf-type">');
-		
-		var typeSelected = 0;
-		for (var x = 0, xl = type.length; x < xl; ++x) {
-			var typeValue, typeLabel;
-			options = [];
-			
-			if (isJSONSchema(type[x])) {
-				typeValue = type[x].getURI();
-				typeLabel = type[x].getAttribute("title") || typeValue;
-			} else {
-				typeLabel = typeValue = type[x];
-			}
-			
-			if (x === typeSelected) {
-				currentType = typeValue;
-				options.push('selected="selected"');
-			}
-			
-			content.push('<option value="' + typeValue + '" ' + options.join(" ") + '>' + typeLabel + '</option>');
-		}
-		
-		content.push('</select>');
-	}
-	
-	options = [];
-	//if (attributes["required"]) {
-	//	options.push('required="required"');
-	//}
-	if (attributes["readonly"]) {
-		options.push('readonly="readonly"');
-	}
-	
-	switch (currentType) {
-	case "any":
-	case "null":
-		break;  //do nothing
-	
-	case "boolean":
-		if (currentValue) {
-			options.push('checked="checked"');
-		}
-		
-		content.push('<input id="' + inputId + '" class="jsvf-boolean" type="checkbox" ' + options.join(" ") + '/>');
-		break;
-		
-	case "number":
-		if (typeOf(attributes["minimum"]) === "number") {
-			options.push('min="' + attributes["minimum"] + '"');
-		}
-		if (typeOf(attributes["maximum"]) === "number") {
-			options.push('max="' + attributes["maximum"] + '"');
-		}
-		//TODO: Support exclusiveMinimum/exclusiveMaximum
-		if (typeOf(attributes["divisibleBy"]) === "number") {
-			options.push('step="' + attributes["divisibleBy"] + '"');
-		}
-		if (typeOf(currentValue) === "number") {
-			options.push('value="' + currentValue + '"');
-		}
-		
-		content.push('<input id="' + inputId + '" class="jsvf-number" type="number" ' + options.join(" ") + '/>');
-		break;
-	
-	case "string":
-		if (attributes["pattern"]) {
-			options.push('pattern="' + attributes["pattern"] + '"');
-		}
-		if (typeOf(attributes["minLength"]) === "number") {
-			options.push('data-minLength="' + attributes["minLength"] + '"');
-			if (attributes["minLength"] > 0) {
-				options.push('required="required"');
-			}
-		}
-		if (typeOf(attributes["maxLength"]) === "number") {
-			options.push('maxlength="' + attributes["maxLength"] + '"');
-		}
-		if (currentValue) {
-			options.push('value="' + currentValue + '"');
-		}
-		//TODO: Support format
-		
-		content.push('<input id="' + inputId + '" class="jsvf-string" type="text" ' + options.join(" ") + '/>');
-		break;
-	}
-	
-	content.push('</div>');
-	
-	return content.join('');
-}
-*/
 
 var TYPES = ["null", "boolean", "number", "string", "object", "array"];
 var TYPE_VALUES = {
@@ -191,13 +85,11 @@ var FORMAT_INPUT_TYPE = {
 
 function renderSchema(schema, instance, id) {
 	var html = [];
-	var types = JSV.toArray(schema.getAttribute("type"));
+	var types = toArray(schema.getAttribute("type"));
 	var title = schema.getAttribute("title");
 	var description = schema.getAttribute("description");
 	var defaultValue = schema.getAttribute("default");
 	var instanceType;
-	var instanceValue;
-	var instanceUri;
 	var x, xl;
 	
 	//fix "type" attribute
@@ -213,12 +105,11 @@ function renderSchema(schema, instance, id) {
 		if (typeOf(defaultValue) !== "undefined") {
 			//use the default value as the instance
 			instanceType = typeOf(defaultValue);
-			instanceValue = defaultValue;
-			instanceUri = null;
+			instance = schema.getEnvironment().createInstance(defaultValue);
 			
 			//determine type from value
 			for (x = 0, xl = types.length; x < xl; ++x) {
-				if ((typeOf(types[x]) === "string" && types[x] === instanceType) || (isJSONSchema(types[x]) && types[x].validate(instanceValue).errors.length === 0)) {
+				if ((typeOf(types[x]) === "string" && types[x] === instanceType) || (isJSONSchema(types[x]) && types[x].validate(instance).errors.length === 0)) {
 					instanceType = types[x];
 					break;
 				}
@@ -226,13 +117,10 @@ function renderSchema(schema, instance, id) {
 		} else {
 			//use the first type as a generic default instance
 			instanceType = types[0];
-			instanceValue = TYPE_VALUES[instanceType];
-			instanceUri = (instance && instance.getURI());
+			instance = schema.getEnvironment().createInstance(TYPE_VALUES[instanceType], (instance && instance.getURI()));
 		}
 	} else {
 		instanceType = instance.getType();
-		instanceValue = instance.getValue();
-		instanceUri = instance.getURI();
 		
 		//determine type from instance
 		for (x = 0, xl = types.length; x < xl; ++x) {
@@ -275,21 +163,23 @@ function renderSchema(schema, instance, id) {
 		html.push('</select>');
 	}
 	
-	html.push(renderInstance(schema, instanceType, instanceValue, instanceUri));
+	html.push(renderInstance(schema, instanceType, instance));
 	
 	html.push('</fieldset>');  //jsvf-instance
 
 	return html.join("");
 }
 
-function renderInstance(schema, type, value, uri, id) {
+function renderInstance(schema, type, instance, id) {
 	var attributes = schema.getAttributes(),
 		typeName = (isJSONSchema(type) ? "schema" : type),
+		value = instance.getValue(),
 		generic = 
 			(id ? ' id="' + id + '"' : '') + 
 			' class="jsvf-value jsvf-' + typeName + '"' +
 			' data-jsvf-type="' + typeName + '"' +
-			(attributes["readonly"] ? (typeName === "schema" ? ' data-jsvf-readonly="true"' : ' readonly="readonly"') : '')
+			(attributes["readonly"] ? ' data-jsvf-readonly="true"' : ''),
+		html, propertyNames, x, xl, propertySchema
 	;
 	
 	switch (typeName) {
@@ -297,7 +187,7 @@ function renderInstance(schema, type, value, uri, id) {
 		return '<input' + generic + ' type="hidden" value="null"/>';
 	
 	case "boolean":
-		return '<input' + generic + ' type="checkbox"' + (value ? ' checked="checked"' : '') + '/>';
+		return '<input' + generic + ' type="checkbox"' + (value ? ' checked="checked"' : '') + (attributes["readonly"] ? ' readonly="readonly"' : '') + '/>';
 		
 	case "number":
 		return '<input' + generic + ' type="number"' +
@@ -306,6 +196,7 @@ function renderInstance(schema, type, value, uri, id) {
 			(attributes["exclusiveMinimum"] ? ' data-jsvf-exclusiveMinimum="true"' : '') +
 			(attributes["exclusiveMaximum"] ? ' data-jsvf-exclusiveMaximum="true"' : '') +
 			(attributes["divisibleBy"] ? ' step="' + attributes["divisibleBy"] + '" data-jsvf-divisibleBy="' + attributes["divisibleBy"] + '"' : '') +
+			(attributes["readonly"] ? ' readonly="readonly"' : '') + 
 			' value="' + value + '"/>';
 	
 	case "string":
@@ -313,7 +204,8 @@ function renderInstance(schema, type, value, uri, id) {
 		
 		generic += (attributes["pattern"] ? ' pattern="' + escapeXMLAttribute(attributes["pattern"]) + '"' : '') +
 			(typeOf(attributes["minLength"]) === "number" ? ' required="required" data-jsvf-minLength="' + attributes["minLength"] + '"' : '') +
-			(typeOf(attributes["maxLength"]) === "number" ? ' maxlength="' + attributes["maxLength"] + '"' : '')
+			(typeOf(attributes["maxLength"]) === "number" ? ' maxlength="' + attributes["maxLength"] + '"' : '') +
+			(attributes["readonly"] ? ' readonly="readonly"' : '')
 		;
 		
 		if (format === "textarea") {
@@ -322,13 +214,76 @@ function renderInstance(schema, type, value, uri, id) {
 		return '<input type="' + format + '"' + generic + ' value="' + value + '"/>';
 	
 	case "object":
-		return;  //TODO
+		html = [];
+		propertyNames = (attributes["properties"] ? Object.keys(attributes["properties"]) : []);
+		Array.addAll(propertyNames, Object.keys(value));
+		
+		html.push('<div' + generic + '>');
+		html.push('<ul>');
+		for (x = 0, xl = propertyNames.length; x < xl; ++x) {
+			//find schema for this property
+			if (attributes["properties"]) {
+				propertySchema = attributes["properties"][propertyNames[x]];
+			}
+			if (!propertySchema && attributes["patternProperties"]) {
+				//TODO
+			}
+			if (!propertySchema) {
+				propertySchema = attributes["additionalProperties"];
+			}
+			if (!isJSONSchema(propertySchema)) {
+				propertySchema = schema.getEnvironment().createEmptySchema();
+			}
+			
+			id = "jsvf-" + ++idCounter;
+			html.push('<li>');
+			html.push('<label for="' + id + '">' + propertyNames[x] + '</label>');
+			html.push(renderSchema(propertySchema, instance.getProperty(propertyNames[x]), id));
+			if (propertySchema.getAttribute("required") !== true) {
+				html.push('<button class="jsvf-delete" type="button">Delete</button>');
+			}
+			html.push('</li>');
+		}
+		html.push('</ul>');
+		
+		html.push('<button class="jsvf-add" type="button">Add</button>');
+		
+		html.push('</div>');
+		
+		return html.join("");
 	
 	case "array":
-		return;  //TODO
+		html = [];
+		html.push('<div' + generic + '>');
+		html.push('<ol type="decimal" start="0">');
+		for (x = 0, xl = value.length; x < xl; ++x) {
+			//find schema for this item
+			propertySchema = attributes["items"];
+			if (typeOf(propertySchema) === "array") {
+				propertySchema = propertySchema[x];
+			}
+			if (!propertySchema) {
+				propertySchema = attributes["additionalItems"];
+			}
+			if (!isJSONSchema(propertySchema)) {
+				propertySchema = schema.getEnvironment().createEmptySchema();
+			}
+			
+			html.push('<li>');
+			html.push(renderSchema(propertySchema, instance.getProperty(x)));
+			html.push('<button class="jsvf-delete" type="button">Delete</button>');
+			html.push('</li>');
+		}
+		html.push('</ol>');
+		
+		html.push('<button class="jsvf-add" type="button">Add</button>');
+		
+		html.push('</div>');
+		
+		return html.join("");
 	
 	case "schema":
-		return '<div' + generic + ' data-jsvf-type-uri="' + type.getURI() + '">' + renderSchema(type, schema.getEnvironment().createInstance(value, uri)) + '</div>';
+		return '<div' + generic + ' data-jsvf-type-uri="' + type.getURI() + '">' + renderSchema(type, instance) + '</div>';
 	
 	default:
 		return '<input' + generic + ' type="hidden" value=""/>';
