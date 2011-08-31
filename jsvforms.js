@@ -289,3 +289,37 @@ function renderInstance(schema, type, instance, id) {
 		return '<input' + generic + ' type="hidden" value=""/>';
 	}
 }
+
+function appendForm(container, schema, instance) {
+	var form = container.ownerDocument.createElement("form");
+	form.innerHTML = renderSchema(schema, instance);
+	container.appendChild(form);
+	
+	form.schemaEnvironment = schema.getEnvironment();
+}
+
+function outerHTML(element, html) {
+	var container = element.ownerDocument.createElement("div");
+	container.innerHTML = html;
+	element.parentNode.replaceChild(container.children[0], element);
+}
+
+function onTypeChange(event) {
+	var target = event.target;
+	
+	if (String(target.className).split(" ").indexOf("jsvf-type") > -1) {
+		var newType = target.value;
+		var valueElement = target.parentNode.getElementsByClassName("jsvf-value")[0];
+		var env = target.form.schemaEnvironment;
+		var schema = env.findSchema(target.parentNode.getAttribute("data-jsvf-schemauri"));
+		
+		//if type is a schema URI, replace with actual schema
+		if (TYPE_VALUES[newType] === undefined) {
+			newType = env.findSchema(newType) || newType;
+		}
+		
+		outerHTML(valueElement, renderInstance(schema, newType, env.createInstance(TYPE_VALUES[newType]), valueElement.id));
+	}
+}
+
+document.addEventListener("change", onTypeChange);
