@@ -290,12 +290,17 @@ function renderInstance(schema, type, instance, id) {
 	}
 }
 
-function appendForm(container, schema, instance) {
-	var form = container.ownerDocument.createElement("form");
+function createForm(schema, instance, container) {
+	var doc = (container ? (container.nodeType === Node.DOCUMENT_NODE ? container : container.ownerDocument) : document),
+		form = doc.createElement("form");
+	
 	form.innerHTML = renderSchema(schema, instance);
-	container.appendChild(form);
+	if (container) {
+		container.appendChild(form);
+	}
 	
 	form.schemaEnvironment = schema.getEnvironment();
+	return form;
 }
 
 function outerHTML(element, html) {
@@ -322,4 +327,16 @@ function onTypeChange(event) {
 	}
 }
 
+function onButtonActivate(event) {
+	var target = event.target;
+	var targetClassNames = String(target.className).split(" ");
+	
+	if (targetClassNames.indexOf("jsvf-delete") > -1) {
+		target.parentNode.parentNode.removeChild(target.parentNode);
+	} else if (targetClassNames.indexOf("jsvf-add") > -1) {
+		//TODO: Pop-up menu with available properties to add
+	}
+}
+
 document.addEventListener("change", onTypeChange);
+document.addEventListener("click", onButtonActivate);
