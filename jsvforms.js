@@ -83,7 +83,7 @@ var FORMAT_INPUT_TYPE = {
 	"textarea" : "textarea"
 };
 
-function renderSchema(schema, instance, id) {
+function renderSchema(schema, instance, id, classNames) {
 	var html = [];
 	var types = toArray(schema.getAttribute("type"));
 	var title = schema.getAttribute("title");
@@ -132,7 +132,7 @@ function renderSchema(schema, instance, id) {
 	}
 	
 	//render schema container
-	html.push('<fieldset' + (id ? ' id="' + id + '"' : '') + ' class="jsvf-instance" data-jsvf-schemauri="' + escapeXMLAttribute(schema.getURI()) + '">');
+	html.push('<fieldset' + (id ? ' id="' + id + '"' : '') + ' class="jsvf-instance' + (classNames ? ' ' + classNames : '') + '" data-jsvf-schemauri="' + escapeXMLAttribute(schema.getURI()) + '">');
 	
 	//render schema title
 	if (title) {
@@ -170,12 +170,11 @@ function renderSchema(schema, instance, id) {
 	return html.join("");
 }
 
-function renderInstance(schema, type, instance, id) {
+function renderInstance(schema, type, instance) {
 	var attributes = schema.getAttributes(),
 		typeName = (isJSONSchema(type) ? "schema" : type),
 		value = instance.getValue(),
 		generic = 
-			(id ? ' id="' + id + '"' : '') + 
 			' class="jsvf-value jsvf-' + typeName + '"' +
 			' data-jsvf-type="' + typeName + '"' +
 			(attributes["readonly"] ? ' data-jsvf-readonly="true"' : ''),
@@ -188,8 +187,9 @@ function renderInstance(schema, type, instance, id) {
 	
 	case "boolean":
 		return '<input' + generic + ' type="checkbox"' + (value ? ' checked="checked"' : '') + (attributes["readonly"] ? ' readonly="readonly"' : '') + '/>';
-		
+	
 	case "number":
+	case "integer":
 		return '<input' + generic + ' type="number"' +
 			(typeOf(attributes["minimum"]) === "number" ? ' min="' + attributes["minimum"] + '"' : '') +
 			(typeOf(attributes["maximum"]) === "number" ? ' max="' + attributes["maximum"] + '"' : '') +
@@ -219,30 +219,9 @@ function renderInstance(schema, type, instance, id) {
 		Array.addAll(propertyNames, Object.keys(value));
 		
 		html.push('<div' + generic + '>');
-		html.push('<ul>');
+		html.push('<ul class="jsvf-properties">');
 		for (x = 0, xl = propertyNames.length; x < xl; ++x) {
-			//find schema for this property
-			if (attributes["properties"]) {
-				propertySchema = attributes["properties"][propertyNames[x]];
-			}
-			if (!propertySchema && attributes["patternProperties"]) {
-				//TODO
-			}
-			if (!propertySchema) {
-				propertySchema = attributes["additionalProperties"];
-			}
-			if (!isJSONSchema(propertySchema)) {
-				propertySchema = schema.getEnvironment().createEmptySchema();
-			}
-			
-			id = "jsvf-" + ++idCounter;
-			html.push('<li>');
-			html.push('<label for="' + id + '">' + propertyNames[x] + '</label>');
-			html.push(renderSchema(propertySchema, instance.getProperty(propertyNames[x]), id));
-			if (propertySchema.getAttribute("required") !== true) {
-				html.push('<button class="jsvf-delete" type="button">Delete</button>');
-			}
-			html.push('</li>');
+			html.push(renderProperty(schema, instance.getProperty(propertyNames[x]), propertyNames[x]));
 		}
 		html.push('</ul>');
 		
@@ -255,28 +234,13 @@ function renderInstance(schema, type, instance, id) {
 	case "array":
 		html = [];
 		html.push('<div' + generic + '>');
-		html.push('<ol type="decimal" start="0">');
+		html.push('<ol class="jsvf-items" start="0">');
 		for (x = 0, xl = value.length; x < xl; ++x) {
-			//find schema for this item
-			propertySchema = attributes["items"];
-			if (typeOf(propertySchema) === "array") {
-				propertySchema = propertySchema[x];
-			}
-			if (!propertySchema) {
-				propertySchema = attributes["additionalItems"];
-			}
-			if (!isJSONSchema(propertySchema)) {
-				propertySchema = schema.getEnvironment().createEmptySchema();
-			}
-			
-			html.push('<li>');
-			html.push(renderSchema(propertySchema, instance.getProperty(x)));
-			html.push('<button class="jsvf-delete" type="button">Delete</button>');
-			html.push('</li>');
+			html.push(renderItem(schema, instance.getProperty(x), x));
 		}
 		html.push('</ol>');
 		
-		html.push('<button class="jsvf-add" type="button">Add</button>');
+		html.push('<button class="jsvf-add jsvf-add-item" type="button">Add</button>');
 		
 		html.push('</div>');
 		
@@ -288,6 +252,56 @@ function renderInstance(schema, type, instance, id) {
 	default:
 		return '<input' + generic + ' type="hidden" value=""/>';
 	}
+}
+
+function renderProperty(schema, instance, name) {
+	var attributes = schema.getAttributes(),
+		propertySchema,
+		defined = false,
+		id = "jsvf-" + ++idCounter;
+	
+	//find schema for this property
+	if (attributes["properties"]) {
+		propertySchema = attributes["properties"][name];
+		defined = true;
+	}
+	if (!propertySchema && attributes["patternProperties"]) {
+		//TODO
+	}
+	if (!propertySchema) {
+		propertySchema = attributes["additionalProperties"];
+	}
+	if (!isJSONSchema(propertySchema)) {
+		propertySchema = schema.getEnvironment().createEmptySchema();
+	}
+	
+	return '<li class="jsvf-property">' +
+		'<label class="jsvf-property-name" for="' + id + '">' + (defined ? name : '<input type="text" value="' + escapeXMLAttribute(name) + '"/>') + '</label>' +
+		renderSchema(propertySchema, instance, id, 'jsvf-property-value') +
+		(propertySchema.getAttribute("required") !== true ? '<button class="jsvf-delete" type="button">Delete</button>' : '') +
+		'</li>';
+}
+
+function renderItem(schema, instance, index) {
+	var attributes = schema.getAttributes(),
+		propertySchema;
+	
+	//find schema for this item
+	propertySchema = attributes["items"];
+	if (typeOf(propertySchema) === "array") {
+		propertySchema = propertySchema[index];
+	}
+	if (!propertySchema) {
+		propertySchema = attributes["additionalItems"];
+	}
+	if (!isJSONSchema(propertySchema)) {
+		propertySchema = schema.getEnvironment().createEmptySchema();
+	}
+	
+	return '<li class="jsvf-item">' +
+		renderSchema(propertySchema, instance, null, "jsvf-item-value") +
+		'<button class="jsvf-delete" type="button">Delete</button>' +
+		'</li>';
 }
 
 function createForm(schema, instance, container) {
@@ -303,18 +317,43 @@ function createForm(schema, instance, container) {
 	return form;
 }
 
+function hasClassName(element, className) {
+	return String(element.className).split(" ").indexOf(className) > -1;
+}
+
 function outerHTML(element, html) {
 	var container = element.ownerDocument.createElement("div");
 	container.innerHTML = html;
 	element.parentNode.replaceChild(container.children[0], element);
 }
 
+function appendHTML(element, html) {
+	var container = element.ownerDocument.createElement("div");
+	container.innerHTML = html;
+	while (container.children.length) {
+		element.appendChild(container.children[0]);
+	}
+}
+
+function getChildrenByClassName(children, className) {
+	var x, xl, results = [];
+	if (children.children) {
+		children = children.children;
+	}
+	for (x = 0, xl = children.length; x < xl; ++x) {
+		if (hasClassName(children[x], className)) {
+			results.push(children[x]);
+		}
+	}
+	return results;
+}
+
 function onTypeChange(event) {
 	var target = event.target;
 	
-	if (String(target.className).split(" ").indexOf("jsvf-type") > -1) {
+	if (hasClassName(target, "jsvf-type")) {
 		var newType = target.value;
-		var valueElement = target.parentNode.getElementsByClassName("jsvf-value")[0];
+		var valueElement = getChildrenByClassName(target.parentNode, "jsvf-value")[0];
 		var env = target.form.schemaEnvironment;
 		var schema = env.findSchema(target.parentNode.getAttribute("data-jsvf-schemauri"));
 		
@@ -323,7 +362,7 @@ function onTypeChange(event) {
 			newType = env.findSchema(newType) || newType;
 		}
 		
-		outerHTML(valueElement, renderInstance(schema, newType, env.createInstance(TYPE_VALUES[newType]), valueElement.id));
+		outerHTML(valueElement, renderInstance(schema, newType, env.createInstance(TYPE_VALUES[newType])));
 	}
 }
 
@@ -333,8 +372,16 @@ function onButtonActivate(event) {
 	
 	if (targetClassNames.indexOf("jsvf-delete") > -1) {
 		target.parentNode.parentNode.removeChild(target.parentNode);
-	} else if (targetClassNames.indexOf("jsvf-add") > -1) {
-		//TODO: Pop-up menu with available properties to add
+		//TODO: Update Add button
+	} else if (targetClassNames.indexOf("jsvf-add-item") > -1) {
+		var env = target.form.schemaEnvironment;
+		var schema = env.findSchema(target.parentNode.parentNode.getAttribute("data-jsvf-schemauri"));
+		var itemsElement = getChildrenByClassName(target.parentNode, "jsvf-items")[0];
+		var index = itemsElement.children.length;
+		appendHTML(itemsElement, renderItem(schema, null, index));
+		//TODO: Update Add button
+	} else if (targetClassNames.indexOf("jsvf-add-property") > -1) {
+		//TODO
 	}
 }
 
