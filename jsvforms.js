@@ -178,7 +178,7 @@ function renderInstance(schema, type, instance) {
 			' class="jsvf-value jsvf-' + typeName + '"' +
 			' data-jsvf-type="' + typeName + '"' +
 			(attributes["readonly"] ? ' data-jsvf-readonly="true"' : ''),
-		html, propertyNames, x, xl, propertySchema
+		html, propertyNames, optionalNames, x, xl, properties
 	;
 	
 	switch (typeName) {
@@ -215,7 +215,20 @@ function renderInstance(schema, type, instance) {
 	
 	case "object":
 		html = [];
-		propertyNames = (attributes["properties"] ? Object.keys(attributes["properties"]) : []);
+		propertyNames = [];
+		optionalNames = [];
+		properties = attributes["properties"];
+		if (properties) {
+			for (x in properties) {
+				if (properties[x] !== O[x]) {
+					if (properties[x].getAttribute("optional") && value[x] === O[x]) {
+						optionalNames.push(x);
+					} else {
+						propertyNames.push(x);
+					}
+				}
+			}
+		}
 		Array.addAll(propertyNames, Object.keys(value));
 		
 		html.push('<div' + generic + '>');
@@ -225,8 +238,13 @@ function renderInstance(schema, type, instance) {
 		}
 		html.push('</ul>');
 		
-		html.push('<menu class="jsvf-add" label="Add">');
-		//html.push('<hr/>');
+		html.push('<menu class="jsvf-add ' + (optionalNames.length ? 'jsvf-add-multipleoptions' : 'jsvf-add-singleoption') + '" label="Add">');
+		if (optionalNames.length) {
+			for (x = 0, xl = optionalNames.length; x < xl; ++x) {
+				html.push('<button class="jsvf-add-property" type="button" value="' + optionalNames[x] + '">' + optionalNames[x] + '</button>');
+			}
+			html.push('<hr/>');
+		}
 		html.push('<button class="jsvf-add-property" type="button" value="">Additional...</button>');
 		html.push('</menu>');
 		
@@ -237,13 +255,13 @@ function renderInstance(schema, type, instance) {
 	case "array":
 		html = [];
 		html.push('<div' + generic + '>');
-		html.push('<ol class="jsvf-items" start="0">');
+		html.push('<ol class="jsvf-properties" start="0">');
 		for (x = 0, xl = value.length; x < xl; ++x) {
 			html.push(renderItem(schema, instance.getProperty(x), x));
 		}
 		html.push('</ol>');
 		
-		html.push('<button class="jsvf-add jsvf-add-item" type="button">Add</button>');
+		html.push('<button class="jsvf-add jsvf-add-property" type="button">Add</button>');
 		
 		html.push('</div>');
 		
@@ -303,8 +321,8 @@ function renderItem(schema, instance, index) {
 		propertySchema = schema.getEnvironment().createEmptySchema();
 	}
 	
-	return '<li class="jsvf-item">' +
-		renderSchema(propertySchema, instance, null, "jsvf-item-value") +
+	return '<li class="jsvf-property">' +
+		renderSchema(propertySchema, instance, null, "jsvf-property-value") +
 		'<button class="jsvf-delete" type="button">Delete</button>' +
 		'</li>';
 }
@@ -382,7 +400,7 @@ function onTypeChange(event) {
 		var schema = env.findSchema(findParentAttribute(target, "data-jsvf-schemauri"));
 		
 		//if type is a schema URI, replace with actual schema
-		if (TYPE_VALUES[newType] === undefined) {
+		if (!TYPE_VALUES.hasOwnProperty(newType)) {
 			newType = env.findSchema(newType) || newType;
 		}
 		
@@ -395,22 +413,25 @@ function onButtonActivate(event) {
 	var targetClassNames = String(target.className).split(" ");
 	
 	if (targetClassNames.indexOf("jsvf-delete") > -1) {
+		var type = findParentAttribute(target, "data-jsvf-type");
+		var addElement = findParentChildByClassName(target, "jsvf-add");
+		var name;  //TODO
 		target.parentNode.parentNode.removeChild(target.parentNode);
-		//TODO: Update Add button
-	} else if (targetClassNames.indexOf("jsvf-add-item") > -1) {
-		var env = target.form.schemaEnvironment;
-		var schema = env.findSchema(findParentAttribute(target, "data-jsvf-schemauri"));
-		var itemsElement = findParentChildByClassName(target, "jsvf-items");
-		var index = itemsElement.children.length;
-		appendHTML(itemsElement, renderItem(schema, null, index));
-		//TODO: Update Add button
+		//updateAddButton(addElement, type, false, name);
 	} else if (targetClassNames.indexOf("jsvf-add-property") > -1) {
 		var env = target.form.schemaEnvironment;
 		var schema = env.findSchema(findParentAttribute(target, "data-jsvf-schemauri"));
 		var propertiesElement = findParentChildByClassName(target, "jsvf-properties");
-		var name = target.value;
-		appendHTML(propertiesElement, renderProperty(schema, null, name));
-		//TODO: Update Add button
+		var type = findParentAttribute(target, "data-jsvf-type");
+		var name;
+		if (type === "object") {
+			name = target.value;
+			appendHTML(propertiesElement, renderProperty(schema, null, name));
+		} else if (type === "array") {
+			name = propertiesElement.children.length;
+			appendHTML(propertiesElement, renderItem(schema, null, name));
+		}
+		//updateAddButton(addElement, type, true, name);  //TODO
 	}
 }
 
