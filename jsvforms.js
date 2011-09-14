@@ -390,21 +390,58 @@ function findParentChildByClassName(element, className) {
 	}
 }
 
+function findFirstChildByClassName(element, className, stopClassName) {
+	var queue = toArray(element.children);
+	var classNames;
+	while (queue.length) {
+		element = queue.shift();
+		classNames = String(element.className).split(" ");
+		if (classNames.indexOf(className) > -1) {
+			return element;
+		} else if (!stopClassName || classNames.indexOf(stopClassName) === -1) {
+			queue.push.apply(queue, element.children);
+		}
+	}
+}
+
+function findParentByTagName(element, tagName) {
+	while (element && element.tagName !== tagName) {
+		element = element.parentNode;
+	}
+	return element;
+}
+
+function findParentByClassName(element, className) {
+	while (element && !hasClassName(element, className)) {
+		element = element.parentNode;
+	}
+	return element;
+}
+
+function updateInstanceType(instanceElement, env, type, instance) {
+	if (!env) {
+		env = findParentByTagName(instanceElement, "form").schemaEnvironment;
+	}
+	
+	var valueElement = findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance");
+	var schema = env.findSchema(instanceElement.getAttribute("data-jsvf-schemauri"));
+	
+	//if type is a schema URI, replace with actual schema
+	if (!TYPE_VALUES.hasOwnProperty(type)) {
+		type = env.findSchema(type) || type;
+	}
+	
+	outerHTML(valueElement, renderInstance(schema, type, instance || env.createInstance(TYPE_VALUES[type])));
+}
+
 function onTypeChange(event) {
 	var target = event.target;
 	
 	if (hasClassName(target, "jsvf-type")) {
-		var newType = target.value;
-		var valueElement = findParentChildByClassName(target, "jsvf-value");
-		var env = target.form.schemaEnvironment;
-		var schema = env.findSchema(findParentAttribute(target, "data-jsvf-schemauri"));
-		
-		//if type is a schema URI, replace with actual schema
-		if (!TYPE_VALUES.hasOwnProperty(newType)) {
-			newType = env.findSchema(newType) || newType;
-		}
-		
-		outerHTML(valueElement, renderInstance(schema, newType, env.createInstance(TYPE_VALUES[newType])));
+		var instanceElement = findParentByClassName(target, "jsvf-instance");
+		var env = (target.form ? target.form.schemaEnvironment : null);
+		var type = target.value;
+		updateInstanceType(instanceElement, env, type);
 	}
 }
 
