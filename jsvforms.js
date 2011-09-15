@@ -273,31 +273,28 @@ function renderInstance(schema, type, instance) {
 	}
 }
 
-function renderObjectProperty(schema, instance, name) {
-	var attributes = schema.getAttributes(),
-		propertySchema,
-		defined = false,
-		id = "jsvf-" + ++idCounter;
+function getObjectPropertySchema(schema, name) {
+	var attributes = schema.getAttributes();
 	
-	//find schema for this property
-	if (attributes["properties"]) {
-		propertySchema = attributes["properties"][name];
-		if (propertySchema) {
-			defined = true;
-		}
+	if (attributes["properties"] && attributes["properties"][name]) {
+		return attributes["properties"][name];
 	}
-	if (!propertySchema && attributes["patternProperties"]) {
+	if (attributes["patternProperties"]) {
 		//TODO
 	}
-	if (!propertySchema) {
-		propertySchema = attributes["additionalProperties"];
-	}
-	if (!isJSONSchema(propertySchema)) {
-		propertySchema = schema.getEnvironment().createEmptySchema();
+	if (isJSONSchema(attributes["additionalProperties"])) {
+		return attributes["additionalProperties"];
 	}
 	
+	return schema.getEnvironment().createEmptySchema();
+}
+
+function renderObjectProperty(schema, instance, name) {
+	var propertySchema = getObjectPropertySchema(schema, name),
+		id = "jsvf-" + ++idCounter;
+	
 	return '<li class="jsvf-property" data-jsvf-property-name="' + name + '">' +
-		'<label class="jsvf-property-name" for="' + id + '">' + (defined ? name : '<input class="jsvf-property-name-value" type="text" required="required" value="' + escapeXMLAttribute(name) + '"/>') + '</label>' +
+		'<label class="jsvf-property-name" for="' + id + '"><input class="jsvf-property-name-value" type="text" value="' + escapeXMLAttribute(name) + '"/></label>' +
 		renderSchema(propertySchema, instance, id, 'jsvf-property-value') +
 		(propertySchema.getAttribute("required") !== true ? '<button class="jsvf-delete" type="button">Delete</button>' : '') +
 		'</li>';
@@ -322,22 +319,25 @@ function renderObjectAddMenu(schema, excludeProperties) {
 	return html.join("");
 }
 
-function renderArrayProperty(schema, instance, index) {
-	var attributes = schema.getAttributes(),
-		propertySchema,
-		id = "jsvf-" + ++idCounter;
+function getArrayPropertySchema(schema, index) {
+	var attributes = schema.getAttributes();
 	
-	//find schema for this item
-	propertySchema = attributes["items"];
-	if (typeOf(propertySchema) === "array") {
-		propertySchema = propertySchema[index];
+	if (attributes["items"]) {
+		if (typeOf(attributes["items"]) === "array") {
+			return attributes["items"][index];
+		}
+		return attributes["items"];
 	}
-	if (!propertySchema) {
-		propertySchema = attributes["additionalItems"];
+	if (isJSONSchema(attributes["additionalItems"])) {
+		return attributes["additionalItems"];
 	}
-	if (!isJSONSchema(propertySchema)) {
-		propertySchema = schema.getEnvironment().createEmptySchema();
-	}
+	
+	return schema.getEnvironment().createEmptySchema();
+}
+
+function renderArrayProperty(schema, instance, index) {
+	var propertySchema = getArrayPropertySchema(schema, index),
+		id = "jsvf-" + ++idCounter;
 	
 	return '<li class="jsvf-property" data-jsvf-property-name="' + index + '">' +
 		'<label class="jsvf-property-name" for="' + id + '">' + index + '</label>' +
@@ -377,38 +377,6 @@ function appendHTML(element, html) {
 		element.appendChild(container.children[0]);
 	}
 	return firstChild;
-}
-
-function getChildrenByClassName(children, className) {
-	var x, xl, results = [];
-	if (children.children) {
-		children = children.children;
-	}
-	for (x = 0, xl = children.length; x < xl; ++x) {
-		if (hasClassName(children[x], className)) {
-			results.push(children[x]);
-		}
-	}
-	return results;
-}
-
-function findParentAttribute(element, attributeName) {
-	while (element && !element.hasAttribute(attributeName)) {
-		element = element.parentNode;
-	}
-	return element && element.getAttribute(attributeName);
-}
-
-function findParentChildByClassName(element, className) {
-	var parent = element.parentNode, children;
-	while (parent) {
-		for (children = parent.children, x = 0, xl = children.length; x < xl; ++x) {
-			if (hasClassName(children[x], className)) {
-				return children[x];
-			}
-		}
-		parent = parent.parentNode;
-	}
 }
 
 function findFirstChildByClassName(element, className, stopClassName) {
@@ -455,6 +423,10 @@ function findParentByClassName(element, className) {
 	return element;
 }
 
+function getJSONInstance(instanceElement) {
+	//TODO
+}
+
 function updateInstanceType(instanceElement, type, instance) {
 	var env = findParentByTagName(instanceElement, "form").schemaEnvironment;
 	var valueElement = findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance");
@@ -479,12 +451,40 @@ function updateObjectAddMenu(instanceElement) {
 	outerHTML(menuElement, renderObjectAddMenu(schema, propertyNames));
 }
 
+function updateObjectPropertyName(instanceElement, property, name) {
+	var propertyName, propertyElement, env, schema, oldPropertySchema, newPropertySchema;
+	
+	if (typeOf(property) === "string") {
+		propertyName = property;
+		//TODO: Find property by name
+	} else {
+		//assume property is the property element
+		propertyName = property.getAttribute("data-jsvf-property-name");
+		propertyElement = property;
+	}
+	
+	env = findParentByTagName(instanceElement, "form").schemaEnvironment;
+	schema = env.findSchema(instanceElement.getAttribute("data-jsvf-schemauri"));
+	oldPropertySchema = getObjectPropertySchema(schema, propertyName);
+	newPropertySchema = getObjectPropertySchema(schema, name);
+	
+	if (oldPropertySchema.equals(newPropertySchema)) {
+		propertyElement.setAttribute("data-jsvf-property-name", name);
+		findFirstChildByClassName(propertyElement, "jsvf-property-name-value", "jsvf-instance").innerHTML = name;  //TODO: Escape
+	} else {
+		outerHTML(propertyElement, renderObjectProperty(schema, getJSONInstance(propertyElement), name));
+	}
+	
+	updateObjectAddMenu(instanceElement);
+}
+
 function updateArrayPropertyNames(instanceElement) {
 	var propertyElements = findFirstChildByClassName(instanceElement, "jsvf-properties", "jsvf-instance").children;
 	for (var x = 0, xl = propertyElements.length; x < xl; ++x) {
 		propertyElements[x].setAttribute("data-jsvf-property-name", String(x));
 		findFirstChildByClassName(propertyElements[x], "jsvf-property-name", "jsvf-instance").innerHTML = String(x);
 	}
+	//TODO: If tuple typing is being used, re-render items
 }
 
 function updateInstanceRemove(instanceElement, target) {
@@ -543,9 +543,9 @@ function onInputChange(event) {
 		var type = target.value;
 		updateInstanceType(instanceElement, type, null);
 	} else if (targetClassNames.indexOf("jsvf-property-name-value") > -1) {
+		var instanceElement = findParentByClassName(target, "jsvf-instance");
 		var propertyElement = findParentByClassName(target, "jsvf-property");
-		propertyElement.setAttribute("data-jsvf-property-name", target.value);
-		//TODO: Apply a different schema if needed
+		updateObjectPropertyName(instanceElement, propertyElement, target.value);
 	}
 }
 
