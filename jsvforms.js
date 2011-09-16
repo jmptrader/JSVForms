@@ -108,7 +108,29 @@ function renderSchema(schema, instance, id, classNames) {
 		Array.addAll(types, TYPES);
 	}
 	
-	if (!instance || instance.getType() === "undefined") {
+	if (instance) {
+		if (instance.getType() !== "undefined") {
+			instanceType = instance.getType();
+			
+			//determine type from instance
+			for (x = 0, xl = types.length; x < xl; ++x) {
+				if ((typeOf(types[x]) === "string" && types[x] === instanceType) || (isJSONSchema(types[x]) && types[x].validate(instance).errors.length === 0)) {
+					instanceType = types[x];
+					break;
+				}
+			}
+			
+			if (x === xl) {
+				//instance does not match a valid type
+				instance = null;
+			}
+		} else {
+			//an undefined instance is no instance
+			instance = null;
+		} 
+	}
+	
+	if (!instance) {
 		//if no instance provided, create a default one
 		if (typeOf(defaultValue) !== "undefined") {
 			//use the default value as the instance
@@ -122,20 +144,16 @@ function renderSchema(schema, instance, id, classNames) {
 					break;
 				}
 			}
+			
+			if (x === xl) {
+				//default is not a valid type
+				instanceType = types[0];
+				instance = schema.getEnvironment().createInstance(TYPE_VALUES[instanceType]);
+			}
 		} else {
 			//use the first type as a generic default instance
 			instanceType = types[0];
-			instance = schema.getEnvironment().createInstance(TYPE_VALUES[instanceType], (instance && instance.getURI()));
-		}
-	} else {
-		instanceType = instance.getType();
-		
-		//determine type from instance
-		for (x = 0, xl = types.length; x < xl; ++x) {
-			if ((typeOf(types[x]) === "string" && types[x] === instanceType) || (isJSONSchema(types[x]) && types[x].validate(instance).errors.length === 0)) {
-				instanceType = types[x];
-				break;
-			}
+			instance = schema.getEnvironment().createInstance(TYPE_VALUES[instanceType]);
 		}
 	}
 	
@@ -423,8 +441,57 @@ function findParentByClassName(element, className) {
 	return element;
 }
 
+function getJSON(instanceElement) {
+	if (!hasClassName(instanceElement, "jsvf-instance")) {
+		instanceElement = findFirstChildByClassName(instanceElement, "jsvf-instance");
+	}
+	
+	var valueElement = findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance");
+	var type = valueElement.getAttribute("data-jsvf-type");
+	
+	switch (type) {
+	case "undefined":
+		return;
+		
+	case "null":
+		return null;
+	
+	case "boolean":
+		return valueElement.checked;
+	
+	case "integer":
+		return parseInt(valueElement.value);
+	
+	case "number":
+		return parseFloat(valueElement.value);
+	
+	case "string":
+		return valueElement.value;
+	
+	case "object":
+		valueElement = findFirstChildByClassName(valueElement, "jsvf-properties", "jsvf-instance");
+		var result = {};
+		for (var children = valueElement.children, x = 0, xl = children.length; x < xl; ++x) {
+			result[children[x].getAttribute("data-jsvf-property-name")] = getJSONInstance(findFirstChildByClassName(children[x], "jsvf-instance"));
+		}
+		return result;
+	
+	case "array":
+		valueElement = findFirstChildByClassName(valueElement, "jsvf-properties", "jsvf-instance");
+		var result = [];
+		for (var children = valueElement.children, x = 0, xl = children.length; x < xl; ++x) {
+			result[result.length] = getJSONInstance(findFirstChildByClassName(children[x], "jsvf-instance"));
+		}
+		return result;
+	
+	case "schema":
+		return getJSONInstance(valueElement.firstChild);
+	}
+}
+
 function getJSONInstance(instanceElement) {
-	//TODO
+	var env = findParentByTagName(instanceElement, "form").schemaEnvironment;
+	return env.createInstance(getJSON(instanceElement));
 }
 
 function updateInstanceType(instanceElement, type, instance) {
@@ -506,7 +573,7 @@ function updateInstanceRemove(instanceElement, target) {
 		
 		//update instance
 		var type = findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance").getAttribute("data-jsvf-type");
-		if (type === "object" || type === "schema") {
+		if (type === "object") {
 			updateObjectAddMenu(instanceElement);
 		} else if (type === "array") {
 			updateArrayPropertyNames(instanceElement);
@@ -521,7 +588,7 @@ function updateInstanceAdd(instanceElement, name, instance) {
 	var propertiesElement = findFirstChildByClassName(instanceElement, "jsvf-properties", "jsvf-instance");
 	var type = findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance").getAttribute("data-jsvf-type");
 	
-	if (type === "object" || type === "schema") {
+	if (type === "object") {
 		var propertyElement = appendHTML(propertiesElement, renderObjectProperty(schema, instance, name));
 		var propertyNameInputElement = findFirstChildByClassName(propertyElement, "jsvf-property-name-value", "jsvf-instance");
 		updateObjectAddMenu(instanceElement);
@@ -561,7 +628,7 @@ function onButtonActivate(event) {
 		var instanceElement = findParentByClassName(target, "jsvf-instance");
 		var type = findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance").getAttribute("data-jsvf-type");
 		var name;
-		if (type === "object" || type === "schema") {
+		if (type === "object") {
 			name = target.value;
 		} else if (type === "array") {
 			name = findFirstChildByClassName(instanceElement, "jsvf-properties", "jsvf-instance").children.length;
