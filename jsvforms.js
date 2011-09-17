@@ -368,8 +368,9 @@ function createForm(schema, instance, container) {
 	var doc = (container ? (container.nodeType === Node.DOCUMENT_NODE ? container : container.ownerDocument) : document),
 		form = doc.createElement("form");
 	
+	form.className = "jsvf";
 	form.innerHTML = renderSchema(schema, instance);
-	if (container) {
+	if (container && container.nodeType === Node.ELEMENT_NODE) {
 		container.appendChild(form);
 	}
 	

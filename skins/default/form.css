@@ -1,0 +1,63 @@
+/* Add/Delete Buttons */
+
+.jsvf-delete {
+	display: block;
+	width: 48px;
+	height: 48px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent url('delete.png') no-repeat left top;
+	text-indent: -1000em;
+	cursor: pointer;
+}
+
+.jsvf-add {
+	display: block;
+	width: 48px;
+	height: 48px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent url('add.png') no-repeat left top;
+}
+
+.jsvf-add-property {
+	cursor: pointer;
+}
+
+.jsvf-add.jsvf-add-property {
+	text-indent: -1000em;
+}
+
+.jsvf-add-singleoption,
+.jsvf-add-multipleoptions {
+	padding-top: 48px;
+	width: auto;
+	height: auto;
+}
+
+.jsvf-add-singleoption:hover,
+.jsvf-add-multipleoptions:hover {
+
+}
+
+/* Minimalist Interface */
+
+.jsvf-value > .jsvf-add,
+.jsvf-property > .jsvf-delete {
+	visibility: hidden;
+}
+
+.jsvf-value:hover > .jsvf-add,
+.jsvf-property:hover > .jsvf-delete {
+	visibility: visible;
+}
+
+.jsvf-array :not(.jsvf-instance) .jsvf-property {
+	cursor: move;
+}
+
+.jsvf-array :not(.jsvf-instance) .jsvf-property > * {
+	cursor: default;
+}
