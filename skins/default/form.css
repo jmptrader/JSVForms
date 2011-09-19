@@ -1,3 +1,13 @@
+/* Instances */
+
+/* Properties (of Objects & Arrays) */
+
+.jsvf-property {
+	border: #ccc 1px solid;
+	padding-right: 50px;
+	position: relative;
+}
+
 /* Add/Delete Buttons */
 
 .jsvf-delete {
@@ -7,9 +17,12 @@
 	margin: 0;
 	padding: 0;
 	border: 0;
+	position: absolute;
+	top: 0;
+	right: 0;
 	background: transparent url('delete.png') no-repeat left top;
 	text-indent: -1000em;
-	cursor: pointer;
+	cursor: pointer !important;
 }
 
 .jsvf-add {
@@ -30,16 +43,44 @@
 	text-indent: -1000em;
 }
 
-.jsvf-add-singleoption,
-.jsvf-add-multipleoptions {
-	padding-top: 48px;
+.jsvf-add-options {
+	background: #000;
+	background: rgba(0,0,0,0.8);
+	margin: 0;
+	border: 0;
+	border-radius: 0 5px 5px 5px;
+	padding: 3px;
 	width: auto;
 	height: auto;
+	position: relative;
+	top: 48px;
+	left: -9999px;
+	z-index: 99;
+	float: left;
 }
 
-.jsvf-add-singleoption:hover,
-.jsvf-add-multipleoptions:hover {
+.jsvf-add:hover .jsvf-add-options {
+	left: 0;
+}
 
+.jsvf-add-multipleoptions:hover {
+	background-color: #000;
+	background-color: rgba(0,0,0,0.8);
+	border-radius: 5px 5px 0 0;
+}
+
+.jsvf-add-singleoption .jsvf-add-options {
+	padding: 0;
+	width: 48px
+	height: 48px;
+	top: 0;
+	opacity: 0;
+}
+
+.jsvf-add-singleoption .jsvf-add-property {
+	width: 48px;
+	height: 48px;
+	text-indent: -1000em;
 }
 
 /* Minimalist Interface */

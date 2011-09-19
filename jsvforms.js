@@ -312,7 +312,9 @@ function renderObjectProperty(schema, instance, name) {
 		id = "jsvf-" + ++idCounter;
 	
 	return '<li class="jsvf-property" data-jsvf-property-name="' + name + '">' +
-		'<label class="jsvf-property-name" for="' + id + '"><input class="jsvf-property-name-value" type="text" value="' + escapeXMLAttribute(name) + '"/></label>' +
+		'<label class="jsvf-property-name" for="' + id + '">' +
+		(schema.getAttribute("additionalProperties") !== false ? '<input class="jsvf-property-name-value" type="text" value="' + escapeXMLAttribute(name) + '"/>' : name) +
+		'</label>' +
 		renderSchema(propertySchema, instance, id, 'jsvf-property-value') +
 		(propertySchema.getAttribute("required") !== true ? '<button class="jsvf-delete" type="button">Delete</button>' : '') +
 		'</li>';
@@ -324,15 +326,21 @@ function renderObjectAddMenu(schema, excludeProperties) {
 	var properties = Object.keys(schema.getAttribute("properties") || {});
 	Array.removeAll(properties, excludeProperties);
 	
-	html.push('<menu class="jsvf-add ' + (properties.length ? 'jsvf-add-multipleoptions' : 'jsvf-add-singleoption') + '" label="Add">');
-	if (properties.length) {
-		for (x = 0, xl = properties.length; x < xl; ++x) {
-			html.push('<button class="jsvf-add-property" type="button" value="' + properties[x] + '">' + properties[x] + '</button>');
+	if (properties.length || schema.getAttribute("additionalProperties") !== false) {
+		html.push('<div class="jsvf-add ' + (properties.length ? 'jsvf-add-multipleoptions' : 'jsvf-add-singleoption') + '"><menu class="jsvf-add-options" label="Add">');
+		if (properties.length) {
+			for (x = 0, xl = properties.length; x < xl; ++x) {
+				html.push('<button class="jsvf-add-property" type="button" value="' + properties[x] + '">' + properties[x] + '</button>');
+			}
 		}
-		html.push('<hr/>');
+		if (schema.getAttribute("additionalProperties") !== false) {
+			if (properties.length) {
+				html.push('<hr/>');
+			}
+			html.push('<button class="jsvf-add-property" type="button" value="">Additional...</button>');
+		}
+		html.push('</menu></div>');
 	}
-	html.push('<button class="jsvf-add-property" type="button" value="">Additional...</button>');
-	html.push('</menu>');
 	
 	return html.join("");
 }
@@ -385,7 +393,11 @@ function hasClassName(element, className) {
 function outerHTML(element, html) {
 	var container = element.ownerDocument.createElement("div");
 	container.innerHTML = html;
-	element.parentNode.replaceChild(container.children[0], element);
+	if (container.children.length) {
+		element.parentNode.replaceChild(container.children[0], element);
+	} else {
+		element.parentNode.removeChild(element);
+	}
 }
 
 function appendHTML(element, html) {
@@ -407,7 +419,7 @@ function findFirstChildByClassName(element, className, stopClassName) {
 		if (classNames.indexOf(className) > -1) {
 			return element;
 		} else if (!stopClassName || classNames.indexOf(stopClassName) === -1) {
-			queue.push.apply(queue, element.children);
+			queue.push.apply(queue, toArray(element.children));
 		}
 	}
 }
@@ -422,7 +434,7 @@ function findChildrenByClassName(element, className, stopClassName) {
 		if (classNames.indexOf(className) > -1) {
 			result.push(element);
 		} else if (!stopClassName || classNames.indexOf(stopClassName) === -1) {
-			queue.push.apply(queue, element.children);
+			queue.push.apply(queue, toArray(element.children));
 		}
 	}
 	return result;
@@ -515,8 +527,13 @@ function updateObjectAddMenu(instanceElement) {
 		return element.getAttribute("data-jsvf-property-name");
 	});
 	var menuElement = findFirstChildByClassName(instanceElement, "jsvf-add", "jsvf-instance");
+	var menuHTML = renderObjectAddMenu(schema, propertyNames);
 	
-	outerHTML(menuElement, renderObjectAddMenu(schema, propertyNames));
+	if (menuElement) {
+		outerHTML(menuElement, menuHTML);
+	} else {
+		appendHTML(findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance"),  menuHTML);
+	}
 }
 
 function updateObjectPropertyName(instanceElement, property, name) {

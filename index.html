@@ -31,12 +31,19 @@ env.createSchema({
 	"required" : true
 }, null, "types.schema.json");
 
+env.createSchema({
+	"title" : "Optional Schema",
+	"description" : "Tests if the optional attribute is respected.",
+	"optional" : true
+}, null, "optional.schema.json");
+
 testsSchema = env.createSchema({
 	"title" : "Unit Tests",
 	"description" : "Renders all tests for JSVForms.",
 	"type" : "object",
 	"properties" : {
-		"types" : {"$ref" : "types.schema.json"}
+		"types" : {"$ref" : "types.schema.json"},
+		"optional" : {"$ref" : "optional.schema.json"}
 	},
 	"additionalProperties" : false,
 	"required" : true
