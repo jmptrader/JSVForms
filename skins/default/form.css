@@ -22,7 +22,7 @@
 	right: 0;
 	background: transparent url('delete.png') no-repeat left top;
 	text-indent: -1000em;
-	cursor: pointer !important;
+	cursor: pointer !important;  /* override move cursor */
 }
 
 .jsvf-add {
@@ -33,6 +33,11 @@
 	padding: 0;
 	border: 0;
 	background: transparent url('add.png') no-repeat left top;
+}
+
+.jsvf-add.jsvf-disabled,
+.jsvf-delete.jsvf-disabled {
+	display: none;
 }
 
 .jsvf-add-property {

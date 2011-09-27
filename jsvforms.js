@@ -5,9 +5,10 @@ var isJSONSchema = JSV.isJSONSchema;
 var toArray = JSV.toArray;
 var mapArray = JSV.mapArray;
 var idCounter = 0;
+var objectKeys = Object.keys;
 
-if (!Object.keys) {
-	Object.keys = function(obj) {
+if (!objectKeys) {
+	objectKeys = function (obj) {
 		var array = [], prop;
 		for (prop in obj) {
 			if (obj.hasOwnProperty(prop)) {
@@ -18,14 +19,7 @@ if (!Object.keys) {
 	};
 }
 
-Array.remove = function (arr, obj) {
-	var index;
-	while ((index = arr.indexOf(obj)) > -1) {
-		arr.splice(index, 1);
-	}
-};
-
-Array.addAll = function (arr, objs) {
+function arrayAddAll(arr, objs) {
 	var x, xl;
 	for (x = 0, xl = objs.length; x < xl; ++x) {
 		if (arr.indexOf(objs[x]) === -1) {
@@ -34,10 +28,17 @@ Array.addAll = function (arr, objs) {
 	}
 };
 
-Array.removeAll = function (arr, objs) {
+function arrayRemove(arr, obj) {
+	var index;
+	while ((index = arr.indexOf(obj)) > -1) {
+		arr.splice(index, 1);
+	}
+};
+
+function arrayRemoveAll(arr, objs) {
 	var x, xl;
 	for (x = 0, xl = objs.length; x < xl; ++x) {
-		Array.remove(arr, objs[x]);
+		arrayRemove(arr, objs[x]);
 	}
 };
 
@@ -104,8 +105,8 @@ function renderSchema(schema, instance, id, classNames) {
 	if (types.length === 0 || (types.length === 1 && types[0] === "any")) {
 		types = TYPES;
 	} else if (types.indexOf("any") > -1) {
-		Array.remove(types, "any");
-		Array.addAll(types, TYPES);
+		arrayRemove(types, "any");
+		arrayAddAll(types, TYPES);
 	}
 	
 	if (instance) {
@@ -252,7 +253,7 @@ function renderInstance(schema, type, instance) {
 				}
 			}
 		}
-		Array.addAll(propertyNames, Object.keys(value));
+		arrayAddAll(propertyNames, objectKeys(value));
 		
 		html.push('<div' + generic + '>');
 		html.push('<ul class="jsvf-properties">');
@@ -271,13 +272,22 @@ function renderInstance(schema, type, instance) {
 		html = [];
 		html.push('<div' + generic + '>');
 		html.push('<ol class="jsvf-properties" start="0">');
-		for (x = 0, xl = value.length; x < xl; ++x) {
+		
+		xl = value.length;
+		if (typeOf(attributes["minItems"]) === "number") {
+			xl = Math.max(xl, attributes["minItems"]);
+		}
+		if (typeOf(attributes["maxItems"]) === "number") {
+			xl = Math.min(xl, attributes["minItems"]);
+		}
+		
+		for (x = 0; x < xl; ++x) {
 			html.push(renderArrayProperty(schema, instance.getProperty(x), x));
 		}
+		
 		html.push('</ol>');
 		
-		//TODO: Only add "Add" button if instance is allowed to have more items
-		html.push('<button class="jsvf-add jsvf-add-property" type="button">Add</button>');
+		html.push(renderArrayAddButton(schema, value.length));
 		
 		html.push('</div>');
 		
@@ -292,13 +302,26 @@ function renderInstance(schema, type, instance) {
 }
 
 function getObjectPropertySchema(schema, name) {
-	var attributes = schema.getAttributes();
+	var attributes = schema.getAttributes(),
+		pattern, regexp;
 	
 	if (attributes["properties"] && attributes["properties"][name]) {
 		return attributes["properties"][name];
 	}
 	if (attributes["patternProperties"]) {
-		//TODO
+		for (pattern in attributes["patternProperties"]) {
+			if (attributes["patternProperties"][pattern] !== O[pattern]) {
+				try {
+					regexp = new RegExp(pattern);
+				} catch (e) {
+					continue;
+				}
+				
+				if (regexp.test(name)) {
+					return attributes["patternProperties"][pattern];
+				}
+			}
+		}
 	}
 	if (isJSONSchema(attributes["additionalProperties"])) {
 		return attributes["additionalProperties"];
@@ -323,24 +346,22 @@ function renderObjectProperty(schema, instance, name) {
 function renderObjectAddMenu(schema, excludeProperties) {
 	excludeProperties = excludeProperties || {};
 	var html = [];
-	var properties = Object.keys(schema.getAttribute("properties") || {});
-	Array.removeAll(properties, excludeProperties);
+	var properties = objectKeys(schema.getAttribute("properties") || {});
+	arrayRemoveAll(properties, excludeProperties);
 	
-	if (properties.length || schema.getAttribute("additionalProperties") !== false) {
-		html.push('<div class="jsvf-add ' + (properties.length ? 'jsvf-add-multipleoptions' : 'jsvf-add-singleoption') + '"><menu class="jsvf-add-options" label="Add">');
-		if (properties.length) {
-			for (x = 0, xl = properties.length; x < xl; ++x) {
-				html.push('<button class="jsvf-add-property" type="button" value="' + properties[x] + '">' + properties[x] + '</button>');
-			}
+	html.push('<div class="jsvf-add ' + (properties.length || schema.getAttribute("additionalProperties") !== false ? (properties.length ? 'jsvf-add-multipleoptions' : 'jsvf-add-singleoption') : 'jsvf-disabled') + '"><menu class="jsvf-add-options" label="Add">');
+	if (properties.length) {
+		for (x = 0, xl = properties.length; x < xl; ++x) {
+			html.push('<button class="jsvf-add-property" type="button" value="' + properties[x] + '">' + properties[x] + '</button>');
 		}
-		if (schema.getAttribute("additionalProperties") !== false) {
-			if (properties.length) {
-				html.push('<hr/>');
-			}
-			html.push('<button class="jsvf-add-property" type="button" value="">Additional...</button>');
-		}
-		html.push('</menu></div>');
 	}
+	if (schema.getAttribute("additionalProperties") !== false) {
+		if (properties.length) {
+			html.push('<hr/>');
+		}
+		html.push('<button class="jsvf-add-property" type="button" value="">Additional...</button>');
+	}
+	html.push('</menu></div>');
 	
 	return html.join("");
 }
@@ -350,9 +371,12 @@ function getArrayPropertySchema(schema, index) {
 	
 	if (attributes["items"]) {
 		if (typeOf(attributes["items"]) === "array") {
-			return attributes["items"][index];
+			if (attributes["items"][index]) {
+				return attributes["items"][index];
+			}
+		} else {
+			return attributes["items"];
 		}
-		return attributes["items"];
 	}
 	if (isJSONSchema(attributes["additionalItems"])) {
 		return attributes["additionalItems"];
@@ -370,6 +394,28 @@ function renderArrayProperty(schema, instance, index) {
 		renderSchema(propertySchema, instance, id, "jsvf-property-value") +
 		'<button class="jsvf-delete" type="button">Delete</button>' +
 		'</li>';
+}
+
+function isArrayFull(schema, itemCount) {
+	var attributes = schema.getAttributes();
+	
+	return (
+		(
+			attributes["additionalItems"] === false && (
+				!attributes["items"] || (
+					typeOf(attributes["items"]) === "array" &&
+					itemCount >= attributes["items"].length
+				)
+			)
+		) || (
+			typeOf(attributes["maxItems"]) === "number" &&
+			itemCount >= attributes["maxItems"]
+		)
+	);
+}
+
+function renderArrayAddButton(schema, itemCount) {
+	return '<button class="jsvf-add jsvf-add-property' + (isArrayFull(schema, itemCount) ? ' jsvf-disabled' : '') + '" type="button">Add</button>';
 }
 
 function createForm(schema, instance, container) {
@@ -526,11 +572,11 @@ function updateObjectAddMenu(instanceElement) {
 	var propertyNames = mapArray(findChildrenByClassName(instanceElement, "jsvf-property", "jsvf-instance"), function (element) {
 		return element.getAttribute("data-jsvf-property-name");
 	});
-	var menuElement = findFirstChildByClassName(instanceElement, "jsvf-add", "jsvf-instance");
+	var addElement = findFirstChildByClassName(instanceElement, "jsvf-add", "jsvf-instance");
 	var menuHTML = renderObjectAddMenu(schema, propertyNames);
 	
-	if (menuElement) {
-		outerHTML(menuElement, menuHTML);
+	if (addElement) {
+		outerHTML(addElement, menuHTML);
 	} else {
 		appendHTML(findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance"),  menuHTML);
 	}
@@ -561,6 +607,20 @@ function updateObjectPropertyName(instanceElement, property, name) {
 	}
 	
 	updateObjectAddMenu(instanceElement);
+}
+
+function updateArrayAddButton(instanceElement) {
+	var env = findParentByTagName(instanceElement, "form").schemaEnvironment;
+	var schema = env.findSchema(instanceElement.getAttribute("data-jsvf-schemauri"));
+	var itemCount = findFirstChildByClassName(instanceElement, "jsvf-properties", "jsvf-instance").children.length;
+	var addElement = findFirstChildByClassName(instanceElement, "jsvf-add", "jsvf-instance");
+	var buttonHTML = renderArrayAddButton(schema, itemCount);
+	
+	if (addElement) {
+		outerHTML(addElement, buttonHTML);
+	} else {
+		appendHTML(findFirstChildByClassName(instanceElement, "jsvf-value", "jsvf-instance"),  buttonHTML);
+	}
 }
 
 function updateArrayPropertyNames(instanceElement) {
@@ -595,7 +655,7 @@ function updateInstanceRemove(instanceElement, target) {
 			updateObjectAddMenu(instanceElement);
 		} else if (type === "array") {
 			updateArrayPropertyNames(instanceElement);
-			//TODO: If there is no "Add" button, and additional items are allowed, then add "Add" button
+			updateArrayAddButton(instanceElement);
 		}
 	}
 }
@@ -615,7 +675,7 @@ function updateInstanceAdd(instanceElement, name, instance) {
 		}
 	} else if (type === "array") {
 		appendHTML(propertiesElement, renderArrayProperty(schema, instance, name));
-		//TODO: If there is an "Add" button, and additional items are not allowed, then remove "Add" button
+		updateArrayAddButton(instanceElement);
 	}
 }
 

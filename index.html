@@ -6,54 +6,7 @@
     <script type="text/javascript" src="../JSV/lib/jsv.js"></script>
     <script type="text/javascript" src="../JSV/lib/json-schema-draft-03.js"></script>
     <script type="text/javascript" src="jsvforms.js"></script>
-    <script type="text/javascript">
-
-env = JSV.createEnvironment();
-
-/* Schemas */
-
-env.createSchema({
-	"title" : "Type Tests",
-	"description" : "Tests rendering of the type attribute.",
-	"type" : "object",
-	"properties" : {
-		"empty" : {},
-		"any" : {"type" : "any"},
-		"null" : {"type" : "null"},
-		"boolean" : {"type" : "boolean"},
-		"integer" : {"type" : "integer"},
-		"number" : {"type" : "number"},
-		"string" : {"type" : "string"},
-		"object" : {"type" : "object"},
-		"array" : {"type" : "array"}
-	},
-	"additionalProperties" : false,
-	"required" : true
-}, null, "types.schema.json");
-
-env.createSchema({
-	"title" : "Optional Schema",
-	"description" : "Tests if the optional attribute is respected.",
-	"optional" : true
-}, null, "optional.schema.json");
-
-testsSchema = env.createSchema({
-	"title" : "Unit Tests",
-	"description" : "Renders all tests for JSVForms.",
-	"type" : "object",
-	"properties" : {
-		"types" : {"$ref" : "types.schema.json"},
-		"optional" : {"$ref" : "optional.schema.json"}
-	},
-	"additionalProperties" : false,
-	"required" : true
-}, null, "schema.json");
-
-window.addEventListener("load", function () {
-	createForm(testsSchema, null, document.body);
-});
-
-    </script>
+    <script type="text/javascript" src="tests.js"></script>
   </head>
   <body>
   </body>
