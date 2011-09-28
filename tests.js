@@ -43,6 +43,65 @@ instance["boolean"] = {
 	"simple + checked" : true
 };
 
+//Number Tests
+
+env.createSchema({
+	"title" : "Number Tests",
+	"description" : "Tests if number attributes are properly rendered.",
+	"type" : "object",
+	"properties" : {
+		"number" : {"type" : "number"},
+		"integer" : {"type" : "integer"},
+		"min/max" : {
+			"type" : "number",
+			"minimum" : 2,
+			"maximum" : 8,
+			"exclusiveMinimum" : true,
+			"exclusiveMaximum" : false
+		},
+		"divisibleBy" : {
+			"type" : "number",
+			"divisibleBy" : 2
+		}
+	},
+	"additionalProperties" : false,
+	"required" : true
+}, null, "number.schema.json");
+
+instance["number"] = {
+	"number" : 5
+};
+
+//String Tests
+
+env.createSchema({
+	"title" : "String Tests",
+	"description" : "Tests if string attributes are properly rendered.",
+	"type" : "object",
+	"properties" : {
+		"simple" : {"type" : "string"},
+		"pattern(^[A-Z]+$)" : {
+			"type" : "string",
+			"pattern" : "^[A-Z]+$"
+		},
+		"min/max" : {
+			"type" : "string",
+			"minLength" : 6,
+			"maxLength" : 8
+		},
+		"format(uri)" : {
+			"type" : "string",
+			"format" : "uri"
+		}
+	},
+	"additionalProperties" : false,
+	"required" : true
+}, null, "string.schema.json");
+
+instance["string"] = {
+	"simple" : "string"
+};
+
 //Object Tests
 
 env.createSchema({
@@ -109,6 +168,10 @@ env.createSchema({
 			"type" : "array",
 			"minItems" : 2,
 			"maxItems" : 4
+		},
+		"unique" : {
+			"type" : "array",
+			"uniqueItems" : true
 		}
 	},
 	"additionalProperties" : false,
@@ -134,6 +197,8 @@ testsSchema = env.createSchema({
 	"properties" : {
 		"types" : {"$ref" : "types.schema.json"},
 		"boolean" : {"$ref" : "boolean.schema.json"},
+		"number" : {"$ref" : "number.schema.json"},
+		"string" : {"$ref" : "string.schema.json"},
 		"object" : {"$ref" : "object.schema.json"},
 		"array" : {"$ref" : "array.schema.json"},
 		"optional" : {"$ref" : "optional.schema.json"}

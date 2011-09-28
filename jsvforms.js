@@ -51,6 +51,12 @@ function escapeXMLAttribute(str) {
 		.replace(/>/g, "&gt;");
 }
 
+function escapeXMLText(str) {
+	return str
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
+}
+
 var TYPES = ["null", "boolean", "number", "string", "object", "array"];
 var TYPE_VALUES = {
 	"null" : null,
@@ -163,12 +169,12 @@ function renderSchema(schema, instance, id, classNames) {
 	
 	//render schema title
 	if (title) {
-		html.push('<legend class="jsvf-title">' + title + '</legend>');
+		html.push('<legend class="jsvf-title">' + escapeXMLText(title) + '</legend>');
 	}
 	
 	//render schema description
 	if (description) {
-		html.push('<p class="jsvf-description">' + description + '</p>');
+		html.push('<p class="jsvf-description">' + escapeXMLText(description) + '</p>');
 	}
 	
 	//render type selection
@@ -184,7 +190,7 @@ function renderSchema(schema, instance, id, classNames) {
 				typeLabel = types[x].getAttribute("title") || typeValue;
 			}
 			
-			html.push('<option value="' + typeValue + '"' + (types[x] === instanceType ? ' selected="selected"' : '') + '>' + typeLabel + '</option>');
+			html.push('<option value="' + escapeXMLAttribute(typeValue) + '"' + (types[x] === instanceType ? ' selected="selected"' : '') + '>' + escapeXMLText(typeLabel) + '</option>');
 		}
 		
 		html.push('</select>');
@@ -229,16 +235,17 @@ function renderInstance(schema, type, instance) {
 	case "string":
 		var format = (FORMAT_INPUT_TYPE[attributes["format"]] || "text");
 		
-		generic += (attributes["pattern"] ? ' pattern="' + escapeXMLAttribute(attributes["pattern"]) + '"' : '') +
+		generic += (attributes["format"] ? ' data-jsvf-format="' + escapeXMLAttribute(attributes["format"]) + '"' : '') +
+			(attributes["pattern"] ? ' pattern="' + escapeXMLAttribute(attributes["pattern"].toString().slice(1, -1)) + '"' : '') +
 			(typeOf(attributes["minLength"]) === "number" ? ' required="required" data-jsvf-minLength="' + attributes["minLength"] + '"' : '') +
 			(typeOf(attributes["maxLength"]) === "number" ? ' maxlength="' + attributes["maxLength"] + '"' : '') +
 			(attributes["readonly"] ? ' readonly="readonly"' : '')
 		;
 		
 		if (format === "textarea") {
-			return '<textarea' + generic + '>' + value + '</textarea>';
+			return '<textarea' + generic + '>' + escapeXMLText(value) + '</textarea>';
 		}
-		return '<input type="' + format + '"' + generic + ' value="' + value + '"/>';
+		return '<input type="' + format + '"' + generic + ' value="' + escapeXMLAttribute(value) + '"/>';
 	
 	case "object":
 		html = [];
@@ -294,7 +301,7 @@ function renderInstance(schema, type, instance) {
 		return html.join("");
 	
 	case "schema":
-		return '<div' + generic + ' data-jsvf-type-uri="' + type.getURI() + '">' + renderSchema(type, instance) + '</div>';
+		return '<div' + generic + ' data-jsvf-type-uri="' + escapeXMLAttribute(type.getURI()) + '">' + renderSchema(type, instance) + '</div>';
 	
 	default:
 		return '<input' + generic + ' type="hidden" value=""/>';
@@ -334,9 +341,9 @@ function renderObjectProperty(schema, instance, name) {
 	var propertySchema = getObjectPropertySchema(schema, name),
 		id = "jsvf-" + ++idCounter;
 	
-	return '<li class="jsvf-property" data-jsvf-property-name="' + name + '">' +
+	return '<li class="jsvf-property" data-jsvf-property-name="' + escapeXMLAttribute(name) + '">' +
 		'<label class="jsvf-property-name" for="' + id + '">' +
-		(schema.getAttribute("additionalProperties") !== false ? '<input class="jsvf-property-name-value" type="text" value="' + escapeXMLAttribute(name) + '"/>' : name) +
+		(schema.getAttribute("additionalProperties") !== false ? '<input class="jsvf-property-name-value" type="text" value="' + escapeXMLAttribute(name) + '"/>' : escapeXMLText(name)) +
 		'</label>' +
 		renderSchema(propertySchema, instance, id, 'jsvf-property-value') +
 		(propertySchema.getAttribute("required") !== true ? '<button class="jsvf-delete" type="button">Delete</button>' : '') +
@@ -352,7 +359,7 @@ function renderObjectAddMenu(schema, excludeProperties) {
 	html.push('<div class="jsvf-add ' + (properties.length || schema.getAttribute("additionalProperties") !== false ? (properties.length ? 'jsvf-add-multipleoptions' : 'jsvf-add-singleoption') : 'jsvf-disabled') + '"><menu class="jsvf-add-options" label="Add">');
 	if (properties.length) {
 		for (x = 0, xl = properties.length; x < xl; ++x) {
-			html.push('<button class="jsvf-add-property" type="button" value="' + properties[x] + '">' + properties[x] + '</button>');
+			html.push('<button class="jsvf-add-property" type="button" value="' + escapeXMLAttribute(properties[x]) + '">' + escapeXMLText(properties[x]) + '</button>');
 		}
 	}
 	if (schema.getAttribute("additionalProperties") !== false) {
@@ -415,7 +422,8 @@ function isArrayFull(schema, itemCount) {
 }
 
 function renderArrayAddButton(schema, itemCount) {
-	return '<button class="jsvf-add jsvf-add-property' + (isArrayFull(schema, itemCount) ? ' jsvf-disabled' : '') + '" type="button">Add</button>';
+	var full = isArrayFull(schema, itemCount);
+	return '<button class="jsvf-add jsvf-add-property' + (full ? ' jsvf-disabled' : '') + '" type="button"' + (full ? ' disabled="disabled"' : '') + '>Add</button>';
 }
 
 function createForm(schema, instance, container) {
